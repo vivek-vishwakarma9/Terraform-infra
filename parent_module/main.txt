@@ -1,0 +1,157 @@
+module "rg_name" {
+  source                 = "../modules/azurerm_resource_group"
+  azurerm_resource_group = var.rg.name
+  location               = var.rg.location
+}
+
+module "virtual_network" {
+  depends_on          = [module.rg_name]
+  source              = "../modules/azurerm_virtual_network"
+  name                = "virtual_network"
+  location            = var.location
+  resource_group_name = "vivek_rg1"
+  address_space       = ["10.0.0.0/16"]
+}
+
+module "sub_frontend" {
+  depends_on          = [module.vnet]
+  source              = "../modules/azurerm_subnet"
+  sub_name            = "frontend_subnet"
+  resource_group_name = "vivek_rg1"
+  vnet_name           = "virtual_network"
+  address_prefix      = ["10.0.1.0/24"]
+
+}
+
+
+module "sub_backend" {
+  depends_on          = [module.vnet]
+  source              = "../modules/azurerm_subnet"
+  sub_name            = "backend_subnet"
+  resource_group_name = "vivek_rg1"
+  vnet_name           = "virtual_network"
+  address_prefix      = ["10.0.2.0/24"]
+
+}
+
+module "frontend_nic" {
+  depends_on          = [module.sub_frontend, module.rg_name]
+  source              = "../modules/azurerm_nic"
+  nic_name            = "frontend_nic"
+  location            = "East Us"
+  resource_group_name = "vivek_rg1"
+  vn_name             = "virtual_network"
+  sub_name            = "frontend_subnet"
+  pip_name            = "frontend_pip"
+
+}
+
+module "backend_nic" {
+  depends_on          = [module.sub_backend, module.rg_name]
+  source              = "../modules/azurerm_nic"
+  nic_name            = "backend_nic"
+  location            = "East Us"
+  resource_group_name = "vivek_rg1"
+  sub_name            = "backend_subnet"
+  # pip_name            = "backend_pip"
+  vn_name = "virtual_network"
+}
+
+
+module "frontend_pip" {
+  source              = "../modules/azurerm_public_IP"
+  name                = "frontend_pip"
+  resource_group_name = "vivek_rg1"
+  location            = "East Us"
+
+}
+
+
+# module "backend_pip" {
+#   source              = "../modules/azurerm_public_IP"
+#   name                = "backend_pip"
+#   resource_group_name = "vivek_rg1"
+#   location            = "East Us"
+
+# }
+
+
+
+module "vm_frontend" {
+  depends_on          = [module.rg_name, module.frontend_nic]
+  source              = "../modules/azurerm_virtual_machine"
+  vm_name             = "frontend-vm"
+  resource_group_name = "vivek_rg1"
+  location            = "East Us"
+  size                = "Standard_D2s_v3"
+  publisher    = "Canonical"
+  offer        = "0001-com-ubuntu-server-focal"
+  sku          = "20_04-lts"
+  version_name = "latest"
+  nic_name     = "frontend_nic"
+}
+
+
+module "vm_backend" {
+  depends_on          = [module.rg_name, module.backend_nic]
+  source              = "../modules/azurerm_virtual_machine"
+  vm_name             = "backend-vm"
+  resource_group_name = "vivek_rg1"
+  location            = "East Us"
+  size                = "Standard_D2s_v3"
+  # admin_password      = "Vivek@123"
+  # admin_username      = "Vivek_user"
+  # nic_id       = data.azurerm_network_interface.backend_nic.id
+  publisher    = "Canonical"
+  offer        = "0001-com-ubuntu-server-focal"
+  sku          = "20_04-lts"
+  version_name = "latest"
+  nic_name     = "backend_nic"
+}
+
+
+module "sql_server" {
+  depends_on          = [module.rg_name]
+  source              = "../modules/azurerm_sql_server"
+  server-name         = "server-vivek"
+  resource_group_name = "vivek_rg1"
+  location            = "Central Us"
+  version_number      = "12.0"
+}
+
+
+module "azurerm_mssql_database" {
+  depends_on        = [module.sql_server]
+  source            = "../modules/azurerm_mssq_database"
+  sql_database_name = "mssql_vivek"
+  # sql_server_id     = data.azurerm_mssql_server.sql_server.id
+  sql_server_name     = "server-vivek"
+  resource_group_name = "vivek_rg1"
+}
+
+
+module "nsg_frontend" {
+  depends_on          = [module.sub_frontend]
+  source              = "../modules/azurerm_NSG"
+  resource_group_name = "vivek_rg1"
+  location            = "East US"
+  nsg_name            = "frontend_nsg"
+  # subnet_id           = data.azurerm_subnet.frontend_subnet_data.id
+  # subnet_id = module.sub_frontend.id
+  sub_name = "frontend_subnet"
+  vn_name  = "virtual_network"
+}
+
+module "nsg_backend" {
+  depends_on          = [module.sub_backend]
+  source              = "../modules/azurerm_NSG"
+  resource_group_name = "vivek_rg1"
+  location            = "East US"
+  nsg_name            = "backend_nsg"
+  # subnet_id           = module.sub_backend.id
+  sub_name = "backend_subnet"
+  vn_name  = "virtual_network"
+}
+
+
+
