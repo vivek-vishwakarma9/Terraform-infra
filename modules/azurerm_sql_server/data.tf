@@ -1,6 +1,6 @@
 
 data "azurerm_key_vault" "key_vault_server" {
-  name                = "vivek4"
+  name                = "vivekkey1"
   resource_group_name = "vivek_rg1"
 }
 
